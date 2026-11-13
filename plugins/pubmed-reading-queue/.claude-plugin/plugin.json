@@ -1,0 +1,5 @@
+{
+  "name": "pubmed-reading-queue",
+  "version": "1.0.0",
+  "description": "Set up a private PubMed reading queue (claude.ai artifact) for your own keywords, with a weekly scheduled refresh."
+}

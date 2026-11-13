@@ -1,0 +1,659 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>{{QUEUE_TITLE}}</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column — a summary band with a weekly backlog strip, a sticky filter bar, then the article list grouped by the week PubMed added them. */
+:root {
+  --bg: #f3f6f7;
+  --surface: #ffffff;
+  --ink: #142029;
+  --muted: #5b6b75;
+  --line: #d9e2e6;
+  --accent: #0b6a85;
+  --accent-soft: #e0eff4;
+  --star: #a8670c;
+  --star-soft: #fbefd9;
+  --good: #2f7a4f;
+  --good-soft: #e3f2e8;
+  --warn-soft: #f6e9e6;
+  --warn: #9a3b2a;
+  --bar: #c7d6dc;
+  --font-title: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --font-ui: "IBM Plex Sans", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e151a; --surface: #152027; --ink: #e3ebef; --muted: #93a5ae; --line: #253540;
+    --accent: #5cb8d4; --accent-soft: #15323d; --star: #e7a947; --star-soft: #3a2a10;
+    --good: #6cc792; --good-soft: #163325; --warn-soft: #3a1f19; --warn: #f0937e; --bar: #2a3d48;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e151a; --surface: #152027; --ink: #e3ebef; --muted: #93a5ae; --line: #253540;
+  --accent: #5cb8d4; --accent-soft: #15323d; --star: #e7a947; --star-soft: #3a2a10;
+  --good: #6cc792; --good-soft: #163325; --warn-soft: #3a1f19; --warn: #f0937e; --bar: #2a3d48;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.5;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap {
+  max-width: 880px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+header.summary { padding-block: 28px 18px; display: grid; gap: 18px; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+h1 { font-family: var(--font-title); font-weight: 500; font-size: clamp(28px, 5vw, 38px); line-height: 1.1; margin: 4px 0 0; text-wrap: balance; }
+.lede { color: var(--muted); margin: 6px 0 0; max-width: 62ch; }
+.stats { display: flex; flex-wrap: wrap; gap: 10px 28px; }
+.stat { display: grid; gap: 2px; }
+.stat b { font-family: var(--font-data); font-weight: 500; font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat span { font-size: 13px; color: var(--muted); }
+.stat.star b { color: var(--star); }
+.backlog { display: grid; gap: 6px; }
+.backlog-head { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.bars { display: flex; align-items: flex-end; gap: 3px; height: 56px; }
+.bar { flex: 1 1 0; min-width: 0; background: var(--bar); border-radius: 2px 2px 0 0; position: relative; overflow: hidden; cursor: pointer; border: 0; padding: 0; }
+.bar i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--good); display: block; }
+.bar.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+.bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bar-axis { display: flex; justify-content: space-between; font-family: var(--font-data); font-size: 11px; color: var(--muted); }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; background: var(--bar); }
+.legend span.d::before { background: var(--good); }
+
+.controls {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  border-bottom: 1px solid var(--line); padding-block: 10px;
+}
+.controls .wrap { display: grid; gap: 8px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.search { flex: 1 1 240px; min-width: 0; position: relative; }
+.search input {
+  width: 100%; font: inherit; font-size: 15px; padding: 8px 12px 8px 34px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+}
+.search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 13px; padding: 7px 11px; border: 0; background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.seg button .n { font-family: var(--font-data); font-size: 12px; margin-left: 4px; }
+.toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; color: var(--ink); font: inherit; font-size: 13px; }
+.toggle[aria-pressed="true"] { background: var(--star-soft); border-color: transparent; color: var(--star); font-weight: 600; }
+select { font: inherit; font-size: 13px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); max-width: 100%; }
+.filters-note { font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.linkish { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+
+main { padding-block: 8px 80px; }
+.week { font-size: 12px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 18px 0 6px; display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); }
+.week span:last-child { font-family: var(--font-data); letter-spacing: 0; text-transform: none; font-weight: 400; }
+.item { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 4px 10px; padding: 14px 0; border-bottom: 1px solid var(--line); transition: opacity .35s ease, background-color .6s ease; }
+.item.leaving { opacity: .25; }
+.item.pressing { background-color: var(--accent-soft); }
+@media (hover: none) { .item { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; } }
+.sheet-back { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, .45); display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  background: var(--surface); color: var(--ink); width: 100%; max-width: 520px; border-radius: 14px 14px 0 0;
+  padding-top: 20px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 12px;
+}
+.sheet h3 { font-family: var(--font-title); font-weight: 500; font-size: 22px; margin: 0; text-wrap: balance; }
+.sheet p { margin: 0; color: var(--muted); font-size: 14px; }
+.sheet .row { justify-content: flex-end; }
+.sheet .btn { padding: 9px 16px; font-size: 14px; }
+@media (min-width: 600px) { .sheet-back { align-items: center; } .sheet { border-radius: 14px; } }
+.marks { display: grid; gap: 26px; justify-items: center; align-content: start; }
+.check { margin-top: 3px; width: 20px; height: 20px; accent-color: var(--good); cursor: pointer; }
+.starbtn {
+  width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--muted); cursor: pointer; display: grid; place-items: center; padding: 0; font-size: 17px; line-height: 1;
+}
+@media (hover: hover) { .starbtn:hover { border-color: var(--star); color: var(--star); } }
+.starbtn[aria-pressed="true"] { background: var(--star-soft); border-color: transparent; color: var(--star); }
+.hint { font-size: 13px; color: var(--muted); padding: 14px 0 2px; }
+#bulk-all { padding-block: 7px; }
+.body { min-width: 0; display: grid; gap: 4px; }
+.title { font-family: var(--font-title); font-size: 18.5px; line-height: 1.3; font-weight: 500; margin: 0; text-wrap: pretty; overflow-wrap: anywhere; }
+.item.done .title { color: var(--muted); }
+.journal { font-weight: 600; font-size: 14px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.journal .jn { overflow-wrap: anywhere; }
+.badge { font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.badge.hi { background: var(--star-soft); color: var(--star); }
+.badge.strong { background: var(--good-soft); color: var(--good); }
+.badge.weak { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+.meta { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.meta .mono { font-family: var(--font-data); font-size: 12px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.btn { font: inherit; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+@media (hover: hover) { .btn:hover { border-color: var(--accent); } }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--muted); padding-inline: 6px; }
+.btn svg { flex: none; }
+.abstract { margin-top: 8px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; font-size: 14.5px; line-height: 1.6; max-width: 72ch; display: grid; gap: 8px; }
+.abstract p { margin: 0; }
+.abstract strong { font-weight: 600; }
+.abstract .none { color: var(--muted); font-style: italic; }
+.more { display: flex; justify-content: center; padding: 22px 0; }
+.empty { padding: 48px 0; text-align: center; color: var(--muted); display: grid; gap: 6px; justify-items: center; }
+.empty b { font-family: var(--font-title); font-weight: 500; font-size: 22px; color: var(--ink); }
+.notice { font-size: 13px; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); }
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 10px; font-size: 14px;
+  display: flex; gap: 14px; align-items: center; z-index: 20; box-shadow: 0 6px 24px rgba(0,0,0,.18);
+  max-width: calc(100% - 32px);
+}
+.toast button { font: inherit; font-weight: 600; background: none; border: 0; color: var(--bg); text-decoration: underline; cursor: pointer; padding: 0; }
+.loading { padding: 40px 0; color: var(--muted); text-align: center; }
+footer { font-size: 12px; color: var(--muted); padding-block: 0 40px; }
+.controls .wrap > * { min-width: 0; }
+@media (max-width: 520px) {
+  .seg { display: flex; width: 100%; }
+  .seg button { flex: 1 1 auto; padding: 7px 4px; font-size: 12.5px; }
+  .seg button .n { display: block; margin-left: 0; }
+  .title { font-size: 17px; }
+  .stat b { font-size: 21px; }
+}
+@media (prefers-reduced-motion: reduce) { .item { transition: none; } }
+</style>
+
+<header class="wrap summary">
+  <div>
+    <div class="eyebrow">{{EYEBROW}}</div>
+    <h1>{{QUEUE_TITLE}}</h1>
+    <p class="lede">Star the articles you want to collect and tick the rest to sign them off. Later, open “Starred” on your computer, save each one to your reference manager, then tick it.{{LEDE_EXTRA}} To clear a run of articles you don’t want, press and hold the last one. Signed-off articles stay under “Signed off” for 30 days, then leave the list at the next Monday refresh.</p>
+  </div>
+  <div class="stats" id="stats" aria-live="polite">
+    <div class="stat star"><b id="st-hi">–</b><span>high-impact left</span></div>
+    <div class="stat"><b id="st-all">–</b><span>articles left in total</span></div>
+    <div class="stat star"><b id="st-star">–</b><span>starred to collect</span></div>
+    <div class="stat"><b id="st-done">–</b><span>signed off</span></div>
+    <div class="stat"><b id="st-behind">–</b><span id="st-behind-label">oldest unreviewed</span></div>
+  </div>
+  <div class="backlog">
+    <div class="backlog-head"><span id="bl-title">Articles added each week</span>
+      <span class="legend"><span>to review</span><span class="d">starred or signed off</span></span></div>
+    <div class="bars" id="bars" role="group" aria-label="Weekly backlog. Select a week to filter the list."></div>
+    <div class="bar-axis" id="axis"></div>
+  </div>
+  <div id="dbnote" hidden class="notice"></div>
+</header>
+
+<div class="controls">
+  <div class="wrap">
+    <div class="row">
+      <label class="search" for="q">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <input id="q" type="search" placeholder="Search titles, journals, authors, abstracts" autocomplete="off" aria-label="Search articles">
+      </label>
+      <button class="toggle" id="hi" type="button" aria-pressed="true">★ High-impact only</button>
+    </div>
+    <div class="row">
+      <div class="seg" role="group" aria-label="Which articles">
+        <button type="button" data-view="todo" aria-pressed="true">To review<span class="n" id="n-todo"></span></button>
+        <button type="button" data-view="starred" aria-pressed="false">★ Starred<span class="n" id="n-starred"></span></button>
+        <button type="button" data-view="done" aria-pressed="false">Signed off<span class="n" id="n-done"></span></button>
+        <button type="button" data-view="all" aria-pressed="false">All<span class="n" id="n-all"></span></button>
+      </div>
+      <select id="topic" aria-label="Topic">
+        <option value="all">All topics</option>
+        {{TOPIC_OPTIONS}}
+      </select>
+      <select id="type" aria-label="Study type">
+        <option value="all">All study types</option>
+        <option value="strong">RCTs, reviews &amp; guidelines</option>
+        <option>RCT</option>
+        <option>Systematic review / MA</option>
+        <option>Review</option>
+        <option>Guideline</option>
+        <option>Clinical trial</option>
+        <option>Observational</option>
+        <option>Case report</option>
+        <option>Letter / editorial</option>
+      </select>
+      <select id="sort" aria-label="Order">
+        <option value="old">Oldest first</option>
+        <option value="new">Newest first</option>
+      </select>
+      <button type="button" class="btn" id="bulk-all" hidden></button>
+    </div>
+    <div class="filters-note" id="fnote" hidden></div>
+  </div>
+</div>
+
+<main class="wrap" id="list" aria-live="polite"><div class="loading">Loading articles…</div></main>
+<footer class="wrap" id="foot"></footer>
+<div class="sheet-back" id="sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" aria-describedby="sheet-msg">
+    <h3 id="sheet-title"></h3>
+    <p id="sheet-msg"></p>
+    <div class="row"><button type="button" class="btn" id="sheet-cancel">Cancel</button><button type="button" class="btn primary" id="sheet-ok"></button></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden role="status"><span id="toast-msg"></span><button type="button" id="toast-undo">Undo</button></div>
+
+<script>
+(() => {
+  const PAGE = 60;
+  const S = {
+    articles: [], byId: new Map(), done: {}, star: {},
+    view: "todo", hi: true, q: "", topic: "all", type: "all", sort: "old", week: null,
+    limit: PAGE, open: new Set(), leaving: new Set(),
+  };
+  const STRONG = new Set(["RCT", "Systematic review / MA", "Guideline", "Review"]);
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const fmt = (iso) => { if (!iso) return ""; const [y, m, d] = iso.split("-").map(Number); return `${MON[m - 1]} ${d}, ${y}`; };
+  const short = (iso) => { const [, m, d] = iso.split("-").map(Number); return `${MON[m - 1]} ${d}`; };
+  const weekOf = (iso) => { const d = new Date(iso + "T12:00:00Z"); const wd = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - wd); return d.toISOString().slice(0, 10); };
+
+  // Per-viewer conveniences only.
+  try {
+    const p = JSON.parse(localStorage.getItem("vrq-prefs") || "{}");
+    if (typeof p.hi === "boolean") S.hi = p.hi;
+    if (p.sort === "new" || p.sort === "old") S.sort = p.sort;
+  } catch (e) {}
+  const savePrefs = () => { try { localStorage.setItem("vrq-prefs", JSON.stringify({ hi: S.hi, sort: S.sort })); } catch (e) {} };
+
+  // ---------- storage (db: status/<YYYY-MM> = sign-offs, starred/<YYYY-MM> = stars; each {items:{pmid: atMs}}) ----------
+  let db = null, dbReady = false;
+  const KINDS = ["status", "starred"];
+  const store = { status: {}, starred: {} };
+  const writing = {}, dirty = {};
+  function rebuild() {
+    for (const kind of KINDS) {
+      const d = {};
+      for (const m of Object.values(store[kind])) for (const [k, v] of Object.entries(m)) if (v) d[k] = v;
+      if (kind === "status") S.done = d; else S.star = d;
+    }
+  }
+  function save(kind, mk) {
+    if (!db) return;
+    const key = kind + "/" + mk;
+    if (writing[key]) { dirty[key] = true; return; }
+    writing[key] = true; dirty[key] = false;
+    db.doc(key).set({ items: { ...(store[kind][mk] || {}) } })
+      .catch((e) => {
+        const what = kind === "status" ? "sign-off" : "star";
+        const msg = e && e.code === "quota_exceeded" ? `Storage is full, so this ${what} wasn't saved.` :
+          e && e.code === "invalid_argument" ? "You can view this queue but not save changes here." :
+          `This ${what} wasn't saved. Check your connection and try again.`;
+        showNote(msg);
+      })
+      .finally(() => { writing[key] = false; if (dirty[key]) save(kind, mk); });
+  }
+  const stateOf = (a) => S.done[a.pmid] ? "done" : S.star[a.pmid] ? "starred" : "todo";
+  function showNote(t) { const n = $("dbnote"); n.textContent = t; n.hidden = !t; }
+
+  (async () => {
+    let timer = setTimeout(() => { if (!dbReady) showNote("Your saved sign-offs can't be reached yet. Ticks you make now may not be kept."); }, 10000);
+    try { db = await window.claude?.use?.("db"); } catch (e) { db = null; }
+    if (!db) { clearTimeout(timer); showNote("Sign-offs can't be saved in this view. Open the queue on claude.ai while signed in to keep them."); return; }
+    const waiting = new Set(KINDS);
+    for (const kind of KINDS) {
+      db.collection(kind).onSnapshot((snap) => {
+        for (const doc of snap.docs) {
+          const key = kind + "/" + doc.id;
+          if (writing[key] || dirty[key]) continue; // local state is newer
+          store[kind][doc.id] = { ...((doc.data() || {}).items || {}) };
+        }
+        rebuild();
+        if (!snap.metadata.fromCache) {
+          waiting.delete(kind);
+          if (!waiting.size) { dbReady = true; clearTimeout(timer); if ($("dbnote").textContent.startsWith("Your saved")) showNote(""); }
+        }
+        render();
+      }, (e) => { clearTimeout(timer); showNote(e && e.code === "revoked" ? "" : "Saved sign-offs and stars couldn't be loaded. Reload the page to try again."); });
+    }
+  })();
+
+  function setMark(kind, pmid, on) {
+    const a = S.byId.get(pmid); if (!a) return;
+    const mk = (a.added || "0000-00").slice(0, 7);
+    const m = { ...(store[kind][mk] || {}) };
+    if (on) m[pmid] = Date.now(); else delete m[pmid];
+    store[kind][mk] = m; rebuild(); save(kind, mk);
+  }
+  function setMany(kind, ids, on) {
+    const months = new Set(), now = Date.now();
+    for (const id of ids) {
+      const a = S.byId.get(id); if (!a) continue;
+      const mk = (a.added || "0000-00").slice(0, 7);
+      const m = { ...(store[kind][mk] || {}) };
+      if (on) m[id] = now; else delete m[id];
+      store[kind][mk] = m; months.add(mk);
+    }
+    rebuild();
+    for (const mk of months) save(kind, mk);
+  }
+  const setDone = (pmid, on) => setMark("status", pmid, on);
+  const setStar = (pmid, on) => setMark("starred", pmid, on);
+
+  // ---------- filtering ----------
+  function hay(a) {
+    if (!a._h) a._h = [a.title, a.journal, a.abbr, a.authors, a.pmid, a.doi, a.type, a.category, ...(a.abstract || []).map((p) => p.text)].join(" ").toLowerCase();
+    return a._h;
+  }
+  function baseFilter(a) {
+    if (S.hi && !a.hi) return false;
+    if (S.topic !== "all" && a.category !== S.topic) return false;
+    if (S.type === "strong") { if (!STRONG.has(a.type)) return false; }
+    else if (S.type !== "all" && a.type !== S.type) return false;
+    if (S.week && weekOf(a.added) !== S.week) return false;
+    if (S.q) { const h = hay(a); for (const t of S.q.split(/\s+/)) if (t && !h.includes(t)) return false; }
+    return true;
+  }
+
+  // ---------- rendering ----------
+  const ICON_EXT = '<svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M8 2h4v4M12 2L6.5 7.5M10.5 8.5V12h-8.5V3.5H5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function typeBadge(t) {
+    if (!t) return "";
+    const cls = STRONG.has(t) ? "strong" : (t === "Case report" || t === "Letter / editorial") ? "weak" : "";
+    return `<span class="badge ${cls}">${esc(t)}</span>`;
+  }
+  function abstractHtml(a) {
+    if (!a.abstract || !a.abstract.length) return '<p class="none">PubMed has no abstract for this article.</p>';
+    return a.abstract.map((p) => `<p>${p.label ? `<strong>${esc(p.label)}.</strong> ` : ""}${esc(p.text)}</p>`).join("");
+  }
+  function itemHtml(a) {
+    const done = !!S.done[a.pmid], starred = !!S.star[a.pmid], open = S.open.has(a.pmid);
+    const url = a.doi ? "https://doi.org/" + a.doi : `https://pubmed.ncbi.nlm.nih.gov/${a.pmid}/`;
+    const title = a.title.replace(/\.$/, "");
+    const pub = a.published && a.published !== a.added ? ` · published ${fmt(a.published)}` : "";
+    return `<article class="item${done ? " done" : ""}${S.leaving.has(a.pmid) ? " leaving" : ""}" data-id="${a.pmid}">
+      <div class="marks">
+        <input class="check" type="checkbox" id="c-${a.pmid}" ${done ? "checked" : ""} aria-label="Sign off: ${esc(title)}">
+        <button type="button" class="starbtn" data-act="star" aria-pressed="${starred}" aria-label="${starred ? "Unstar" : "Star to collect"}: ${esc(title)}" title="${starred ? "Unstar" : "Star to collect for your reference manager"}">${starred ? "★" : "☆"}</button>
+      </div>
+      <div class="body">
+        <h2 class="title"><label for="c-${a.pmid}">${esc(title)}</label></h2>
+        <div class="journal"><span class="jn">${esc(a.journal)}</span>${a.hi ? '<span class="badge hi">★ High-impact</span>' : ""}${typeBadge(a.type)}</div>
+        <div class="meta">${esc(a.authors)}${a.authors ? " · " : ""}added ${fmt(a.added)}${pub} · <span class="mono">PMID ${a.pmid}</span>${starred ? ` · starred ${fmt(new Date(S.star[a.pmid]).toISOString().slice(0, 10))}` : ""}${done ? ` · signed off ${fmt(new Date(S.done[a.pmid]).toISOString().slice(0, 10))}` : ""}</div>
+        <div class="actions">
+          <button type="button" class="btn" data-act="abs" aria-expanded="${open}" aria-controls="a-${a.pmid}">${open ? "Hide abstract" : "Show abstract"}</button>
+          <a class="btn primary" href="${esc(url)}" target="_blank" rel="noopener">Open article ${ICON_EXT}</a>
+          <a class="btn quiet" href="https://pubmed.ncbi.nlm.nih.gov/${a.pmid}/" target="_blank" rel="noopener">PubMed</a>
+        </div>
+        <div class="abstract" id="a-${a.pmid}" ${open ? "" : "hidden"}>${open ? abstractHtml(a) : ""}</div>
+      </div>
+    </article>`;
+  }
+
+  function renderStats() {
+    const all = S.articles;
+    const left = all.filter((a) => stateOf(a) === "todo");
+    $("st-hi").textContent = left.filter((a) => a.hi).length.toLocaleString();
+    $("st-all").textContent = left.length.toLocaleString();
+    $("st-star").textContent = all.filter((a) => stateOf(a) === "starred").length.toLocaleString();
+    $("st-done").textContent = Object.keys(S.done).filter((k) => S.byId.has(k)).length.toLocaleString();
+    const pool = S.hi ? left.filter((a) => a.hi) : left;
+    if (pool.length) {
+      const oldest = pool.reduce((m, a) => (a.added < m ? a.added : m), pool[0].added);
+      const days = Math.round((Date.now() - new Date(oldest + "T12:00:00Z")) / 864e5);
+      $("st-behind").textContent = short(oldest);
+      $("st-behind-label").textContent = `oldest ${S.hi ? "high-impact " : ""}unreviewed · ${days < 14 ? days + " days" : Math.round(days / 7) + " weeks"} ago`;
+    } else {
+      $("st-behind").textContent = "None";
+      $("st-behind-label").textContent = S.hi ? "high-impact left · all caught up" : "left · all caught up";
+    }
+  }
+
+  function renderBars() {
+    if (!S.articles.length) return;
+    const pool = S.articles.filter((a) => !S.hi || a.hi);
+    const weeks = new Map();
+    const first = weekOf(S.articles.reduce((m, a) => (a.added < m ? a.added : m), S.articles[0].added));
+    const last = weekOf(new Date().toISOString().slice(0, 10));
+    for (let d = new Date(first + "T12:00:00Z"); d.toISOString().slice(0, 10) <= last; d.setUTCDate(d.getUTCDate() + 7)) weeks.set(d.toISOString().slice(0, 10), { t: 0, d: 0 });
+    for (const a of pool) { const w = weeks.get(weekOf(a.added)); if (w) { w.t++; if (stateOf(a) !== "todo") w.d++; } }
+    const max = Math.max(1, ...[...weeks.values()].map((w) => w.t));
+    $("bars").innerHTML = [...weeks].map(([wk, w]) => {
+      const h = Math.max(w.t ? 6 : 2, Math.round((w.t / max) * 100));
+      const dp = w.t ? Math.round((w.d / w.t) * 100) : 0;
+      const label = `Week of ${short(wk)}: ${w.t} ${S.hi ? "high-impact " : ""}articles, ${w.d} starred or signed off`;
+      return `<button type="button" class="bar${S.week === wk ? " sel" : ""}" data-week="${wk}" style="height:${h}%" title="${label}" aria-label="${label}" aria-pressed="${S.week === wk}"><i style="height:${dp}%"></i></button>`;
+    }).join("");
+    const ks = [...weeks.keys()];
+    $("axis").innerHTML = `<span>${short(ks[0])}</span><span>${short(ks[Math.floor(ks.length / 2)])}</span><span>This week</span>`;
+    $("bl-title").textContent = `${S.hi ? "High-impact articles" : "Articles"} added each week`;
+  }
+
+  function render() {
+    if (!S.articles.length) return;
+    renderStats(); renderBars();
+    const base = S.articles.filter(baseFilter);
+    const counts = { todo: 0, starred: 0, done: 0 };
+    for (const a of base) counts[stateOf(a)]++;
+    $("n-todo").textContent = counts.todo.toLocaleString();
+    $("n-starred").textContent = counts.starred.toLocaleString();
+    $("n-done").textContent = counts.done.toLocaleString();
+    $("n-all").textContent = base.length.toLocaleString();
+    for (const b of document.querySelectorAll(".seg button")) b.setAttribute("aria-pressed", String(b.dataset.view === S.view));
+    $("hi").setAttribute("aria-pressed", String(S.hi));
+
+    let rows = base.filter((a) => S.view === "all" || stateOf(a) === S.view || S.leaving.has(a.pmid));
+    // "Sign off all N" lives in the sticky filter bar; it shows only in To review with a filter set.
+    S.filteredTodo = S.view === "todo" && filterActive() ? rows.filter((a) => stateOf(a) === "todo").map((a) => a.pmid) : [];
+    const nAll = S.filteredTodo.length, bulkBtn = $("bulk-all");
+    bulkBtn.hidden = !nAll;
+    bulkBtn.textContent = nAll === 1 ? "Sign off 1" : `Sign off all ${nAll.toLocaleString()}`;
+    if (S.view === "done") rows.sort((x, y) => (S.done[y.pmid] || 0) - (S.done[x.pmid] || 0));
+    else if (S.view === "starred") rows.sort((x, y) => (S.star[x.pmid] || 0) - (S.star[y.pmid] || 0));
+    else rows.sort((x, y) => S.sort === "old" ? (x.added.localeCompare(y.added) || x.pmid.localeCompare(y.pmid)) : (y.added.localeCompare(x.added) || y.pmid.localeCompare(x.pmid)));
+
+    const notes = [];
+    if (S.week) notes.push(`Week of ${short(S.week)}`);
+    if (S.q) notes.push(`matching “${esc(S.q)}”`);
+    const fn = $("fnote");
+    fn.hidden = !notes.length;
+    fn.innerHTML = notes.length ? `Showing ${notes.join(", ")} <button type="button" class="linkish" id="clear">Clear</button>` : "";
+
+    if (!rows.length) {
+      const msg = S.view === "todo" && !S.q && !S.week
+        ? `<b>All caught up</b><span>${S.hi ? "Every high-impact article is signed off. Turn off “High-impact only” to see the rest." : "Every article in this view is signed off."}</span>`
+        : S.view === "starred" && !S.q && !S.week ? `<b>Nothing starred to collect</b><span>Tap ☆ on an article in “To review” to collect it here for your reference manager.${S.hi ? " Starred articles outside the high-impact journals appear when “High-impact only” is off." : ""}</span>`
+        : S.view === "done" && !S.q ? `<b>Nothing signed off yet</b><span>Tick an article in “To review” and it moves here.</span>`
+        : `<b>No matches</b><span>Try another search, or switch to “All” to include signed-off articles.</span>`;
+      $("list").innerHTML = `<div class="empty">${msg}</div>`;
+      S.shown = [];
+      return;
+    }
+    const shown = rows.slice(0, S.limit);
+    S.shown = shown.map((a) => a.pmid);
+    let html = S.view === "starred" ? '<p class="hint">In the order you starred them. Open each article, save it to your reference manager, then tick it off.</p>' : "", lastWeek = null;
+    const byDate = S.view === "todo" || S.view === "all";
+    const weekCounts = {};
+    if (byDate) for (const a of rows) { const w = weekOf(a.added); weekCounts[w] = (weekCounts[w] || 0) + 1; }
+    for (const a of shown) {
+      if (byDate) {
+        const w = weekOf(a.added);
+        if (w !== lastWeek) { html += `<div class="week"><span>Week of ${fmt(w)}</span><span>${weekCounts[w]} ${weekCounts[w] === 1 ? "article" : "articles"}</span></div>`; lastWeek = w; }
+      }
+      html += itemHtml(a);
+    }
+    if (rows.length > shown.length) html += `<div class="more"><button type="button" class="btn" id="more">Show ${Math.min(PAGE, rows.length - shown.length)} more of ${(rows.length - shown.length).toLocaleString()}</button></div>`;
+    $("list").innerHTML = html;
+  }
+
+  // ---------- events ----------
+  let toastTimer = null, lastAction = null;
+  function toast(msg, undo) {
+    $("toast-msg").textContent = msg; $("toast").hidden = false; lastAction = undo;
+    $("toast-undo").hidden = !undo;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { $("toast").hidden = true; lastAction = null; }, 5000);
+  }
+  $("toast-undo").addEventListener("click", () => { if (lastAction) lastAction(); $("toast").hidden = true; lastAction = null; });
+
+  function afterChange(id) {
+    if (S.view !== "all") {
+      S.leaving.add(id); render();
+      setTimeout(() => { S.leaving.delete(id); render(); }, 650);
+    } else render();
+  }
+  $("list").addEventListener("change", (e) => {
+    const cb = e.target.closest(".check"); if (!cb) return;
+    const id = cb.closest(".item").dataset.id, on = cb.checked;
+    setDone(id, on); afterChange(id);
+    const back = S.star[id] ? "Moved back to Starred" : "Moved back to To review";
+    toast(on ? "Signed off" : back, () => { setDone(id, !on); render(); });
+  });
+  $("list").addEventListener("click", (e) => {
+    const st = e.target.closest("[data-act='star']");
+    if (st) {
+      const id = st.closest(".item").dataset.id, on = !S.star[id];
+      setStar(id, on);
+      if (S.done[id]) render(); else afterChange(id);
+      toast(on ? "Starred to collect" : "Unstarred", () => { setStar(id, !on); render(); });
+      return;
+    }
+    const b = e.target.closest("[data-act='abs']");
+    if (b) {
+      const item = b.closest(".item"), id = item.dataset.id, box = item.querySelector(".abstract");
+      if (S.open.has(id)) { S.open.delete(id); box.hidden = true; b.textContent = "Show abstract"; b.setAttribute("aria-expanded", "false"); }
+      else { S.open.add(id); box.innerHTML = abstractHtml(S.byId.get(id)); box.hidden = false; b.textContent = "Hide abstract"; b.setAttribute("aria-expanded", "true"); }
+      return;
+    }
+    if (e.target.id === "more") { S.limit += PAGE; render(); }
+  });
+  // ---------- press and hold in "To review": sign off this article and everything above it ----------
+  let press = null, suppressClick = false, pendingBulk = null;
+  const shortTitle = (t) => { t = t.replace(/\.$/, ""); return t.length > 90 ? t.slice(0, 87) + "…" : t; };
+  function cancelPress() { if (press) { clearTimeout(press.t); press.item.classList.remove("pressing"); press = null; } }
+  $("list").addEventListener("pointerdown", (e) => {
+    if (S.view !== "todo" || e.button > 0 || !$("sheet").hidden) return;
+    if (e.target.closest("a, button, input")) return;
+    const item = e.target.closest(".item"); if (!item) return;
+    cancelPress();
+    item.classList.add("pressing");
+    const t = setTimeout(() => {
+      item.classList.remove("pressing"); press = null; suppressClick = true;
+      openBulk(item.dataset.id);
+    }, 600);
+    press = { t, x: e.clientX, y: e.clientY, item };
+  });
+  $("list").addEventListener("pointermove", (e) => { if (press && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) cancelPress(); });
+  for (const ev of ["pointercancel", "pointerleave"]) $("list").addEventListener(ev, cancelPress);
+  $("list").addEventListener("pointerup", () => { cancelPress(); if (suppressClick) setTimeout(() => { suppressClick = false; }, 400); });
+  window.addEventListener("scroll", cancelPress, { passive: true });
+  $("list").addEventListener("contextmenu", (e) => { if (S.view === "todo" && e.target.closest(".item") && !e.target.closest("a")) e.preventDefault(); });
+  // The release after a hold must not also tick the article (its title is the checkbox's label).
+  document.addEventListener("click", (e) => {
+    if (suppressClick && $("list").contains(e.target)) { suppressClick = false; e.preventDefault(); e.stopPropagation(); }
+  }, true);
+
+  function openSheet(ids, title, msg) {
+    if (!ids.length) return;
+    pendingBulk = ids;
+    $("sheet-title").textContent = title;
+    $("sheet-msg").textContent = msg;
+    $("sheet-ok").textContent = ids.length === 1 ? "Sign off" : `Sign off ${ids.length.toLocaleString()}`;
+    $("sheet").hidden = false;
+    $("sheet-ok").focus();
+  }
+  function openBulk(id) {
+    const idx = S.shown.indexOf(id); if (idx < 0) return;
+    const ids = S.shown.slice(0, idx + 1).filter((p) => { const a = S.byId.get(p); return a && stateOf(a) === "todo"; });
+    if (!ids.length) return;
+    try { if (navigator.vibrate) navigator.vibrate(15); } catch (err) {}
+    const t = shortTitle(S.byId.get(id).title);
+    openSheet(ids,
+      ids.length === 1 ? "Sign off this article?" : `Sign off ${ids.length} articles?`,
+      ids.length === 1
+        ? `“${t}” is the first article in this list.`
+        : `This signs off “${t}” and the ${ids.length - 1} ${ids.length === 2 ? "article" : "articles"} above it in this list.`);
+  }
+  function filterActive() { return S.topic !== "all" || S.type !== "all" || !!S.week || !!S.q; }
+  function filterLabel() {
+    const parts = [];
+    if (S.type !== "all") parts.push($("type").selectedOptions[0].textContent);
+    if (S.topic !== "all") parts.push(S.topic);
+    if (S.week) parts.push(`week of ${short(S.week)}`);
+    if (S.q) parts.push(`search “${S.q}”`);
+    if (S.hi) parts.push("high-impact only");
+    return parts.join(" · ");
+  }
+  function openBulkAll() {
+    const ids = (S.filteredTodo || []).filter((p) => { const a = S.byId.get(p); return a && stateOf(a) === "todo"; });
+    const n = ids.length;
+    openSheet(ids,
+      n === 1 ? "Sign off this article?" : `Sign off all ${n.toLocaleString()} articles?`,
+      `This signs off ${n === 1 ? "the one article" : `every article`} in “To review” matching ${filterLabel()}, including any further down the list. Starred articles aren’t affected.`);
+  }
+  function closeBulk() { $("sheet").hidden = true; pendingBulk = null; }
+  $("bulk-all").addEventListener("click", openBulkAll);
+  $("sheet-cancel").addEventListener("click", closeBulk);
+  $("sheet").addEventListener("click", (e) => { if (e.target.id === "sheet") closeBulk(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("sheet").hidden) closeBulk(); });
+  $("sheet-ok").addEventListener("click", () => {
+    const ids = pendingBulk; closeBulk(); if (!ids) return;
+    setMany("status", ids, true); render();
+    // Jump back to the top of the list so the next unseen article is first on screen.
+    // The filter bar sticks below the phone's top inset, so allow for both.
+    const bar = document.querySelector(".controls");
+    const stick = parseFloat(getComputedStyle(bar).top) || 0;
+    const top = $("list").getBoundingClientRect().top + window.scrollY - bar.offsetHeight - stick;
+    window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
+    requestAnimationFrame(() => {
+      const covered = bar.getBoundingClientRect().bottom - $("list").getBoundingClientRect().top;
+      if (covered > 1) window.scrollBy({ top: -covered, behavior: "auto" });
+    });
+    toast(`Signed off ${ids.length} ${ids.length === 1 ? "article" : "articles"}`, () => { setMany("status", ids, false); render(); });
+  });
+
+  // The Starred, Signed off and All views each get a link (#starred, #signed-off, #all).
+  const HASH = { todo: "", starred: "starred", done: "signed-off", all: "all" };
+  const fromHash = () => Object.keys(HASH).find((v) => HASH[v] && HASH[v] === location.hash.slice(1)) || "todo";
+  function setView(v) { S.view = v; S.limit = PAGE; S.leaving.clear(); render(); }
+  document.querySelector(".seg").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    const v = b.dataset.view;
+    try { location.hash = HASH[v]; } catch (err) {}
+    setView(v);
+  });
+  window.addEventListener("hashchange", () => { const v = fromHash(); if (v !== S.view) setView(v); });
+  S.view = fromHash();
+  $("hi").addEventListener("click", () => { S.hi = !S.hi; S.limit = PAGE; savePrefs(); render(); });
+  $("topic").addEventListener("change", (e) => { S.topic = e.target.value; S.limit = PAGE; render(); });
+  $("type").addEventListener("change", (e) => { S.type = e.target.value; S.limit = PAGE; render(); });
+  $("sort").addEventListener("change", (e) => { S.sort = e.target.value; S.limit = PAGE; savePrefs(); render(); });
+  let qt = null;
+  $("q").addEventListener("input", (e) => { clearTimeout(qt); qt = setTimeout(() => { S.q = e.target.value.trim().toLowerCase(); S.limit = PAGE; render(); }, 180); });
+  $("bars").addEventListener("click", (e) => {
+    const b = e.target.closest(".bar"); if (!b) return;
+    S.week = S.week === b.dataset.week ? null : b.dataset.week; S.limit = PAGE; render();
+  });
+  $("fnote").addEventListener("click", (e) => {
+    if (e.target.id !== "clear") return;
+    S.week = null; S.q = ""; $("q").value = ""; S.limit = PAGE; render();
+  });
+
+  $("sort").value = S.sort;
+
+  fetch("articles.json").then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).then((data) => {
+    const meta = Array.isArray(data) ? { articles: data } : data;
+    S.articles = meta.articles; for (const a of S.articles) S.byId.set(a.pmid, a);
+    const range = S.articles.reduce((m, a) => [a.added < m[0] ? a.added : m[0], a.added > m[1] ? a.added : m[1]], ["9999", "0000"]);
+    $("foot").textContent = `${S.articles.length.toLocaleString()} articles added to PubMed ${fmt(range[0])} – ${fmt(range[1])}${meta.updated ? `, last updated ${fmt(meta.updated)}` : ""}. Refreshed every Monday. Articles signed off more than 30 days ago are removed. {{EXCLUSION_NOTE}} Data from PubMed (NCBI).`;
+    render();
+  }).catch(() => {
+    $("list").innerHTML = '<div class="empty"><b>The article list didn’t load</b><span>Reload the page. If it keeps failing, ask Claude to republish the queue.</span></div>';
+  });
+})();
+</script>
+
+</body></html>

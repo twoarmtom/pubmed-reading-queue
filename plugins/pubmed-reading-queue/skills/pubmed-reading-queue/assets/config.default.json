@@ -1,0 +1,25 @@
+{
+  "queue_title": "Ventilation Reading Queue",
+  "eyebrow": "PubMed · ventilation, NIV, HFNC, PEEP, EIT, transpulmonary pressure",
+  "terms": [
+    "\"mechanical ventilation\"",
+    "\"noninvasive ventilation\"",
+    "\"high-flow nasal cannula\"",
+    "(\"PEEP\" AND (ventilation OR respiratory OR lung))",
+    "\"electrical impedance tomography\"",
+    "\"transpulmonary pressure\""
+  ],
+  "exclude_terms": ["neonatal", "neonate", "neonates", "pediatric", "paediatric", "children", "infant", "infants", "newborn", "preterm"],
+  "exclude_regex": "neonat|pediatric|paediatric|infant|newborn|preterm|children|\\bNICU\\b",
+  "exclusion_note": "Pediatric and neonatal studies are excluded.",
+  "categories": [
+    ["EIT & Monitoring", "impedance tomograph|\\bEIT\\b|monitor|capnograph|oximetr|ultraso|esophageal pressure|transpulmonary"],
+    ["NIV & HFNC", "non-?invasive ventilation|\\bNIV\\b|\\bCPAP\\b|bi-?level|BiPAP|high[- ]flow|HFNC|HFNO|helmet|THRIVE"],
+    ["ARDS", "\\bARDS\\b|acute respiratory distress|acute lung injury"],
+    ["Ventilation & Weaning", "mechanical ventilation|ventilator|wean|extubat|liberation|tidal volume|driving pressure|VILI|P-SILI|\\bPEEP\\b|recruitment|prone"],
+    ["Airway & Sedation", "sedat|neuromuscular block|airway|intubat|tracheost|paraly"]
+  ],
+  "high_impact": ["Intensive Care Med", "Crit Care", "Crit Care Med", "J Crit Care", "Curr Opin Crit Care", "Crit Care Explor", "Intensive Crit Care Nurs", "J Vet Emerg Crit Care (San Antonio)", "Neurocrit Care", "N Engl J Med", "Am J Respir Crit Care Med", "Chest", "Respir Care", "Ann Intensive Care", "Br J Anaesth", "Anesthesiology", "JAMA"],
+  "high_impact_prefixes": ["Lancet", "JAMA"],
+  "lede_extra": ""
+}

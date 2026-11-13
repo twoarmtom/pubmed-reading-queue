@@ -1,0 +1,17 @@
+You maintain my '{{QUEUE_NAME}}', a private claude.ai artifact at {{ARTIFACT_URL}}. It lists PubMed articles for my search terms. The article list is the published file articles.json. My sign-off ticks live in the artifact's database, in the 'status' collection. You may READ that collection, but never write, update or delete database rows. This run: add the articles PubMed gained since the last update, drop articles I signed off more than 30 days ago, then republish the page.
+
+Work in a new folder named pqr inside your current working directory; PQR below means its absolute path.
+
+1. Artifact tool, action read, url above, paths ['index.html', 'articles.json', 'refresh/fetch_pubmed.txt', 'refresh/config.json'], out_dir PQR. PAGE means the absolute path of the saved index.html. Do not edit PAGE. Copy PQR/refresh/fetch_pubmed.txt to PQR/fetch_pubmed.py. It is my own script; read it once before running it. CONFIG means PQR/refresh/config.json.
+2. ArtifactData tool, action list, url above, collection 'status', out_dir PQR/db (page with query.cursor if a next_cursor comes back). This saves the sign-off documents as PQR/db/status/*.json. If the collection is empty, create PQR/db/status empty. SIGNED means the option --signed-off PQR/db/status (absolute path).
+3. Try NCBI directly: python3 -I PQR/fetch_pubmed.py update PQR/articles.json SIGNED --config CONFIG
+   It prints one JSON line {new, new_high_impact, pruned, total, bytes}. If it succeeds, go to step 5.
+4. If step 3 fails because NCBI cannot be reached (this sandbox's proxy usually blocks it), use the PubMed connector:
+   a. Let NEWEST be the latest 'added' date in PQR/articles.json. Call search_articles with the query below, datetype 'edat', date_from = NEWEST minus 3 days (YYYY/MM/DD), date_to = today, max_results 100; repeat with retstart 100, 200, ... until you have every PMID (compare with total_count). If the connector rejects the query as too complex, run it as two halves and combine the PMIDs.
+   b. Drop every PMID already in PQR/articles.json or listed in any PQR/db/status/*.json 'items'.
+   c. If any PMIDs remain, call get_article_metadata on them in batches of at most 20. Large results are saved to files; read them from those files. Check that the number of records equals the number of PMIDs asked for, and fetch any missing. Save all returned 'articles' entries, unchanged, as one JSON array in PQR/connector.json. If none remain, write [] to PQR/connector.json.
+   d. Run: python3 -I PQR/fetch_pubmed.py update PQR/articles.json --import PQR/connector.json SIGNED --config CONFIG
+   Query: {{QUERY}}
+5. If new and pruned are both 0, publish nothing. Otherwise: Artifact tool, action publish, url above, file_path PAGE, files {'articles.json': '<absolute path of PQR/articles.json>'}. Pass no capabilities, icon or contract, and leave the page HTML as it is. If the publish is refused because the page changed, read index.html again into PQR and retry once.
+6. Never delete anything (database rows, files or artifacts) and never touch any other artifact.
+7. Report: new articles, how many are high-impact, how many signed-off articles were removed, the new total, the file size, NCBI directly or connector, and whether the publish succeeded. If anything failed, say which step and the error. If new articles were found, or anything failed, send a PushNotification (summary in <routine_summary> tags); if nothing changed and nothing failed, stay silent.
